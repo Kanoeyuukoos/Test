@@ -3,8 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Compressor Pro v2.1</title>
+    <title>Video Compressor Pro v2.2</title>
     
+    <script>
+        window.coi = {
+            shouldRegister: () => true,
+            shouldDeregister: () => false,
+            coepCredentialless: () => true,
+            coepDegrade: () => true,
+            doReload: () => window.location.reload(),
+            quiet: false
+        };
+    </script>
+
     <script src="https://cdn.jsdelivr.net/gh/gzuidhof/coi-serviceworker@latest/coi-serviceworker.min.js"></script>
     
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
@@ -13,93 +24,46 @@
         :root { --primary: #00cf81; --bg: #0f0f0f; --card: #1a1a1a; }
         body { 
             font-family: 'Segoe UI', sans-serif; 
-            background: var(--bg); 
-            color: white; 
-            margin: 0; 
-            padding: 20px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+            background: var(--bg); color: white; 
+            margin: 0; padding: 20px; 
+            display: flex; flex-direction: column; align-items: center; 
         }
-        
         .container { 
-            background: var(--card); 
-            width: 100%; 
-            max-width: 500px; 
-            padding: 25px; 
-            border-radius: 15px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            background: var(--card); width: 100%; max-width: 500px; 
+            padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
         }
-
-        h2 { margin: 0 0 10px 0; color: var(--primary); text-align: center; }
-        p.subtitle { color: #888; text-align: center; font-size: 13px; margin-bottom: 20px; }
-
+        h2 { margin: 0; color: var(--primary); text-align: center; }
+        p.subtitle { color: #888; text-align: center; font-size: 12px; margin-bottom: 20px; }
         .control-group { 
-            margin-bottom: 20px; 
-            border: 2px dashed #333; 
-            padding: 20px; 
-            border-radius: 10px; 
-            text-align: center; 
+            margin-bottom: 20px; border: 2px dashed #333; 
+            padding: 20px; border-radius: 10px; text-align: center; 
         }
-        
-        input[type="file"] { width: 100%; color: #ccc; }
-
         button { 
-            background: var(--primary); 
-            color: black; 
-            border: none; 
-            padding: 15px; 
-            border-radius: 10px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            width: 100%; 
-            font-size: 16px; 
-            transition: 0.3s; 
+            background: var(--primary); color: black; border: none; 
+            padding: 15px; border-radius: 10px; font-weight: bold; 
+            cursor: pointer; width: 100%; font-size: 16px; 
         }
-
-        button:disabled { background: #444; color: #888; cursor: not-allowed; }
-
-        /* Progress Bar */
+        button:disabled { background: #444; color: #888; }
         .progress-section { margin: 20px 0; display: none; }
-        .progress-text { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
         .progress-bar { width: 100%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
         #progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.2s; }
-
-        /* Console Log */
         .log-container { 
-            background: #000; 
-            border-radius: 8px; 
-            padding: 12px; 
-            height: 180px; 
-            overflow-y: auto; 
-            font-family: 'Consolas', monospace; 
-            font-size: 11px; 
-            border: 1px solid #333; 
-            margin-top: 15px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+            background: #000; border-radius: 8px; padding: 12px; 
+            height: 180px; overflow-y: auto; font-family: monospace; 
+            font-size: 11px; border: 1px solid #333; margin-top: 15px;
         }
-        .log-entry { margin-bottom: 2px; color: #aaa; }
-        .log-success { color: var(--primary); }
-        .log-error { color: #ff4d4d; }
-
         #download-area { margin-top: 20px; text-align: center; }
         .download-btn { 
-            display: block; 
-            background: white; 
-            color: black; 
-            text-decoration: none; 
-            padding: 12px; 
-            border-radius: 8px; 
-            font-weight: bold; 
+            display: block; background: white; color: black; 
+            text-decoration: none; padding: 12px; border-radius: 8px; font-weight: bold; 
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Video Compressor v2.1</h2>
-    <p class="subtitle">Optimasi Ultrafast untuk Mobile</p>
+    <h2>Video Compressor v2.2</h2>
+    <p class="subtitle">Mode: SharedArrayBuffer + Ultrafast</p>
     
     <div class="control-group">
         <input type="file" id="uploader" accept="video/*">
@@ -108,7 +72,7 @@
     <button id="btn-start">Mulai Kompresi</button>
 
     <div class="progress-section" id="prog-section">
-        <div class="progress-text">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px;">
             <span id="status-text">Menunggu...</span>
             <span id="percent-text">0%</span>
         </div>
@@ -123,18 +87,16 @@
 
 <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
-    
     const logBox = document.getElementById('log-box');
     
-    function appendLog(msg, type = '') {
+    function appendLog(msg) {
         const div = document.createElement('div');
-        div.className = 'log-entry ' + type;
+        div.style.color = "#aaa";
         div.innerText = `> ${msg}`;
         logBox.appendChild(div);
         logBox.scrollTop = logBox.scrollHeight;
     }
 
-    // Inisialisasi FFmpeg
     const ffmpeg = createFFmpeg({ 
         log: true,
         logger: ({ message }) => appendLog(message)
@@ -142,66 +104,51 @@
 
     const btn = document.getElementById('btn-start');
     const uploader = document.getElementById('uploader');
-    const progSection = document.getElementById('prog-section');
     const progFill = document.getElementById('progress-fill');
     const percentText = document.getElementById('percent-text');
     const statusText = document.getElementById('status-text');
-    const downloadArea = document.getElementById('download-area');
 
     btn.addEventListener('click', async () => {
         const file = uploader.files[0];
-        if (!file) return alert("Pilih video dulu!");
+        if (!file) return alert("Pilih file video!");
 
         btn.disabled = true;
-        progSection.style.display = 'block';
-        downloadArea.innerHTML = '';
-        logBox.innerHTML = '';
+        document.getElementById('prog-section').style.display = 'block';
         
         try {
             if (!ffmpeg.isLoaded()) {
-                appendLog("Memuat Core Engine...", "log-success");
+                appendLog("Loading FFmpeg Core...");
                 await ffmpeg.load();
             }
 
-            appendLog("Membaca file: " + file.name);
-            ffmpeg.FS('writeFile', 'input_raw', await fetchFile(file));
+            appendLog("Membaca file...");
+            ffmpeg.FS('writeFile', 'input', await fetchFile(file));
 
-            // Progres Handler
             ffmpeg.setProgress(({ ratio }) => {
-                const percentage = Math.max(0, Math.min(100, Math.round(ratio * 100)));
-                progFill.style.width = percentage + '%';
-                percentText.innerText = percentage + '%';
-                statusText.innerText = "Encoding...";
+                const p = Math.round(ratio * 100);
+                progFill.style.width = p + '%';
+                percentText.innerText = p + '%';
+                statusText.innerText = "Mengompres...";
             });
 
-            // Jalankan Perintah - Preset Ultrafast agar tidak hang
-            // CRF 28-30 mirip kompresi Facebook
+            // Perintah paling ringan untuk browser mobile
             await ffmpeg.run(
-                '-i', 'input_raw', 
+                '-i', 'input', 
                 '-vcodec', 'libx264', 
                 '-preset', 'ultrafast', 
                 '-crf', '30',
                 '-acodec', 'aac',
-                '-b:a', '128k',
                 'output.mp4'
             );
 
-            appendLog("Proses Selesai!", "log-success");
             statusText.innerText = "Selesai!";
-            
             const data = ffmpeg.FS('readFile', 'output.mp4');
             const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-
-            downloadArea.innerHTML = `
-                <a href="${url}" download="compressed_${file.name}" class="download-btn">
-                    ⬇️ DOWNLOAD HASIL
-                </a>
+            document.getElementById('download-area').innerHTML = `
+                <a href="${url}" download="hasil_kompres.mp4" class="download-btn">DOWNLOAD HASIL</a>
             `;
-
-        } catch (err) {
-            appendLog("ERROR: " + err.message, "log-error");
-            console.error(err);
-            statusText.innerText = "Gagal!";
+        } catch (e) {
+            appendLog("ERROR: " + e.message);
         } finally {
             btn.disabled = false;
         }
